@@ -132,6 +132,25 @@ header::before{content:'';position:absolute;inset:0;background:repeating-linear-
 @keyframes spin{to{transform:rotate(360deg)}}
 .reverb-badge{font-size:0.6rem;background:rgba(254,204,2,0.1);color:var(--accent);padding:2px 6px;border-radius:4px;font-weight:700;border:1px solid rgba(254,204,2,0.2);}
 
+/* Autocomplete */
+.ac-wrap{position:relative;}
+.ac-dropdown{position:absolute;top:100%;left:0;right:0;z-index:50;background:var(--bg2);border:1px solid var(--border);border-top:none;border-radius:0 0 8px 8px;max-height:340px;overflow-y:auto;display:none;}
+.ac-dropdown.open{display:block;}
+.ac-item{display:flex;gap:10px;align-items:center;padding:10px 14px;cursor:pointer;transition:background 0.12s;border-bottom:1px solid var(--border);}
+.ac-item:last-child{border-bottom:none;}
+.ac-item:hover,.ac-item.ac-active{background:rgba(254,204,2,0.08);}
+.ac-item img{width:44px;height:44px;object-fit:cover;border-radius:6px;background:var(--bg);flex-shrink:0;}
+.ac-item-noimg{width:44px;height:44px;border-radius:6px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;color:var(--dim);}
+.ac-item-info{flex:1;min-width:0;}
+.ac-item-title{font-size:0.85rem;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ac-item-meta{font-size:0.7rem;color:var(--dim);margin-top:2px;}
+.ac-item-price{font-family:var(--mono);font-size:0.78rem;font-weight:700;color:var(--accent);flex-shrink:0;}
+.ac-loading{padding:14px;text-align:center;color:var(--muted);font-size:0.82rem;}
+.ac-hint{padding:8px 14px;font-size:0.68rem;color:var(--dim);text-align:center;border-bottom:1px solid var(--border);}
+.ac-selected-badge{display:inline-flex;align-items:center;gap:6px;font-size:0.72rem;color:var(--accent);background:rgba(254,204,2,0.08);border:1px solid rgba(254,204,2,0.2);padding:4px 10px;border-radius:6px;margin-top:6px;}
+.ac-selected-badge .ac-x{cursor:pointer;font-size:0.8rem;opacity:0.6;transition:opacity 0.15s;}
+.ac-selected-badge .ac-x:hover{opacity:1;}
+
 @media(max-width:700px){
   .gear-grid{grid-template-columns:1fr;}
   .form-row{grid-template-columns:1fr;}
@@ -172,9 +191,15 @@ header::before{content:'';position:absolute;inset:0;background:repeating-linear-
     <button class="back-btn" onclick="navigate('#/')">&#8592; Tilbake</button>
     <div class="form-card">
       <h2>Legg til gear</h2>
-      <div class="form-group">
+      <div class="form-group ac-wrap">
         <label>Navn</label>
-        <input type="text" id="fName" placeholder="F.eks. Fender Stratocaster MIM">
+        <input type="text" id="fName" placeholder="F.eks. Fender Stratocaster MIM" autocomplete="off">
+        <div class="ac-dropdown" id="acDropdown"></div>
+        <div id="acBadge"></div>
+        <input type="hidden" id="fMake">
+        <input type="hidden" id="fModel">
+        <input type="hidden" id="fYear">
+        <input type="hidden" id="fReverbQuery">
       </div>
       <div class="form-row">
         <div class="form-group">
@@ -382,6 +407,14 @@ function initAddForm() {
   document.getElementById('fDate').value = new Date().toISOString().split('T')[0];
   document.getElementById('fCategory').value = '';
   document.getElementById('fNotes').value = '';
+  document.getElementById('fMake').value = '';
+  document.getElementById('fModel').value = '';
+  document.getElementById('fYear').value = '';
+  document.getElementById('fReverbQuery').value = '';
+  document.getElementById('acBadge').innerHTML = '';
+  document.getElementById('acDropdown').innerHTML = '';
+  document.getElementById('acDropdown').classList.remove('open');
+  acSelected = false;
 }
 
 document.getElementById('saveGearBtn').onclick = () => {
@@ -390,14 +423,189 @@ document.getElementById('saveGearBtn').onclick = () => {
   const date = document.getElementById('fDate').value;
   const category = document.getElementById('fCategory').value;
   const notes = document.getElementById('fNotes').value.trim();
+  const make = document.getElementById('fMake').value;
+  const model = document.getElementById('fModel').value;
+  const year = document.getElementById('fYear').value;
+  const reverbQuery = document.getElementById('fReverbQuery').value;
 
   if (!name) { document.getElementById('fName').focus(); return; }
   if (isNaN(price) || price < 0) { document.getElementById('fPrice').focus(); return; }
   if (!date) { document.getElementById('fDate').focus(); return; }
 
-  addGear({ name, pricePaid: price, currency: 'NOK', datePurchased: date, category, notes });
+  const gear = { name, pricePaid: price, currency: 'NOK', datePurchased: date, category, notes };
+  if (make) gear.make = make;
+  if (model) gear.model = model;
+  if (year) gear.year = year;
+  if (reverbQuery) gear.reverbQuery = reverbQuery;
+
+  addGear(gear);
   navigate('#/');
 };
+
+// ── Autocomplete ──
+let acDebounce = null;
+let acSelected = false;
+let acActiveIdx = -1;
+
+const fNameEl = document.getElementById('fName');
+const acDropdown = document.getElementById('acDropdown');
+
+fNameEl.addEventListener('input', () => {
+  // If user types after selecting, clear the selection
+  if (acSelected) {
+    acSelected = false;
+    document.getElementById('fMake').value = '';
+    document.getElementById('fModel').value = '';
+    document.getElementById('fYear').value = '';
+    document.getElementById('fReverbQuery').value = '';
+    document.getElementById('acBadge').innerHTML = '';
+  }
+
+  clearTimeout(acDebounce);
+  const q = fNameEl.value.trim();
+  if (q.length < 3) {
+    acDropdown.classList.remove('open');
+    acDropdown.innerHTML = '';
+    return;
+  }
+
+  acDebounce = setTimeout(() => fetchAcSuggestions(q), 400);
+});
+
+fNameEl.addEventListener('keydown', (e) => {
+  if (!acDropdown.classList.contains('open')) return;
+  const items = acDropdown.querySelectorAll('.ac-item');
+  if (!items.length) return;
+
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    acActiveIdx = Math.min(acActiveIdx + 1, items.length - 1);
+    items.forEach((el, i) => el.classList.toggle('ac-active', i === acActiveIdx));
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    acActiveIdx = Math.max(acActiveIdx - 1, 0);
+    items.forEach((el, i) => el.classList.toggle('ac-active', i === acActiveIdx));
+  } else if (e.key === 'Enter' && acActiveIdx >= 0) {
+    e.preventDefault();
+    items[acActiveIdx].click();
+  } else if (e.key === 'Escape') {
+    acDropdown.classList.remove('open');
+    acActiveIdx = -1;
+  }
+});
+
+// Close dropdown on outside click
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.ac-wrap')) {
+    acDropdown.classList.remove('open');
+    acActiveIdx = -1;
+  }
+});
+
+async function fetchAcSuggestions(query) {
+  acDropdown.innerHTML = '<div class="ac-loading"><span class="spinner-sm"></span>S\u00f8ker p\u00e5 Reverb...</div>';
+  acDropdown.classList.add('open');
+  acActiveIdx = -1;
+
+  try {
+    const res = await fetch(`/api/reverb?q=${encodeURIComponent(query)}&per_page=5`);
+    if (!res.ok) throw new Error('API-feil');
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    // Check if input still matches (user may have typed more)
+    if (fNameEl.value.trim() !== query) return;
+
+    if (!data.listings || data.listings.length === 0) {
+      acDropdown.innerHTML = '<div class="ac-loading" style="color:var(--dim)">Ingen treff p\u00e5 Reverb</div>';
+      return;
+    }
+
+    // Deduplicate by title (Reverb often has many identical listings)
+    const seen = new Set();
+    const unique = [];
+    for (const l of data.listings) {
+      const key = (l.make + ' ' + l.model + ' ' + l.year).trim().toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        unique.push(l);
+      }
+    }
+
+    let html = '<div class="ac-hint">Velg for \u00e5 koble til Reverb-produkt</div>';
+    unique.forEach((l, i) => {
+      const titleDisplay = l.title.length > 60 ? l.title.substring(0, 57) + '...' : l.title;
+      const meta = [l.make, l.model, l.year].filter(Boolean).join(' \u00b7 ');
+      html += `<div class="ac-item" data-idx="${i}"
+        data-title="${esc(l.title)}"
+        data-make="${esc(l.make)}"
+        data-model="${esc(l.model)}"
+        data-year="${esc(l.year)}">
+        ${l.photo
+          ? `<img src="${esc(l.photo)}" alt="" loading="lazy">`
+          : '<div class="ac-item-noimg">&#127928;</div>'}
+        <div class="ac-item-info">
+          <div class="ac-item-title">${esc(titleDisplay)}</div>
+          <div class="ac-item-meta">${meta ? esc(meta) : esc(l.condition || '')}</div>
+        </div>
+        <div class="ac-item-price">$${l.price.toLocaleString('en-US')}</div>
+      </div>`;
+    });
+
+    acDropdown.innerHTML = html;
+
+    // Click handlers for each item
+    acDropdown.querySelectorAll('.ac-item').forEach(el => {
+      el.addEventListener('click', () => {
+        const title = el.dataset.title;
+        const make = el.dataset.make;
+        const model = el.dataset.model;
+        const year = el.dataset.year;
+
+        // Build a clean name: "Make Model (Year)" or just title
+        let cleanName = title;
+        if (make && model) {
+          cleanName = make + ' ' + model;
+          if (year) cleanName += ' (' + year + ')';
+        }
+
+        fNameEl.value = cleanName;
+        document.getElementById('fMake').value = make;
+        document.getElementById('fModel').value = model;
+        document.getElementById('fYear').value = year;
+        // Use title as the reverbQuery for best search results later
+        document.getElementById('fReverbQuery').value = title;
+
+        acSelected = true;
+        acDropdown.classList.remove('open');
+        acActiveIdx = -1;
+
+        // Show badge
+        document.getElementById('acBadge').innerHTML = `
+          <div class="ac-selected-badge">
+            <span class="reverb-badge">REVERB</span>
+            ${esc(make)}${model ? ' ' + esc(model) : ''}${year ? ' \u00b7 ' + year : ''}
+            <span class="ac-x" title="Fjern kobling">&times;</span>
+          </div>`;
+
+        // Clear badge on X click
+        document.getElementById('acBadge').querySelector('.ac-x').onclick = (e) => {
+          e.stopPropagation();
+          acSelected = false;
+          document.getElementById('fMake').value = '';
+          document.getElementById('fModel').value = '';
+          document.getElementById('fYear').value = '';
+          document.getElementById('fReverbQuery').value = '';
+          document.getElementById('acBadge').innerHTML = '';
+          fNameEl.focus();
+        };
+      });
+    });
+
+  } catch (e) {
+    acDropdown.innerHTML = '<div class="ac-loading" style="color:var(--red);font-size:0.78rem">Kunne ikke s\u00f8ke Reverb</div>';
+  }
+}
 
 // ── Detail view ──
 function renderDetail(id) {
@@ -431,6 +639,10 @@ function renderDetail(id) {
         <div class="detail-tags">
           ${catLabel ? `<span class="detail-tag">${catLabel}</span>` : ''}
           ${dateStr ? `<span class="detail-tag">Kj&oslash;pt ${dateStr}</span>` : ''}
+          ${gear.make ? `<span class="detail-tag">${esc(gear.make)}</span>` : ''}
+          ${gear.model && gear.model !== gear.make ? `<span class="detail-tag">${esc(gear.model)}</span>` : ''}
+          ${gear.year ? `<span class="detail-tag">${gear.year}</span>` : ''}
+          ${gear.reverbQuery ? `<span class="detail-tag reverb-badge">REVERB</span>` : ''}
         </div>
         ${gear.notes ? `<div class="detail-notes">&laquo;${esc(gear.notes)}&raquo;</div>` : ''}
       </div>

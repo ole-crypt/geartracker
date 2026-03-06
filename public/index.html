@@ -508,7 +508,7 @@ async function fetchAcSuggestions(query) {
   acActiveIdx = -1;
 
   try {
-    const res = await fetch(`/api/reverb?q=${encodeURIComponent(query)}&per_page=5`);
+    const res = await fetch(`/api/reverb?q=${encodeURIComponent(query)}&per_page=10`);
     if (!res.ok) throw new Error('API-feil');
     const data = await res.json();
     if (data.error) throw new Error(data.error);
@@ -912,7 +912,7 @@ async function searchReverb(gearId, gear) {
   resultsEl.innerHTML = '<div class="reverb-loading"><span class="spinner-sm"></span>Henter priser fra Reverb...</div>';
 
   try {
-    const res = await fetch(`/api/reverb?q=${encodeURIComponent(query)}&per_page=25`);
+    const res = await fetch(`/api/reverb?q=${encodeURIComponent(query)}&per_page=25&sort=price%7Casc`);
     if (!res.ok) throw new Error('API-feil: ' + res.status);
     const data = await res.json();
     if (data.error) throw new Error(data.error);

@@ -32,12 +32,16 @@ export default async function handler(req) {
     );
   }
 
+  const sort = url.searchParams.get('sort') || '';
+  const category = url.searchParams.get('category') || '';
+
   const reverbUrl = new URL('https://api.reverb.com/api/listings/all');
   reverbUrl.searchParams.set('query', q);
   reverbUrl.searchParams.set('per_page', perPage);
   reverbUrl.searchParams.set('page', page);
-  reverbUrl.searchParams.set('sort', 'price|asc');
+  if (sort) reverbUrl.searchParams.set('sort', sort);
   if (condition) reverbUrl.searchParams.set('conditions', condition);
+  if (category) reverbUrl.searchParams.set('category', category);
 
   try {
     const res = await fetch(reverbUrl.toString(), {

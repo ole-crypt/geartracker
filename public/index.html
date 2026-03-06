@@ -218,20 +218,28 @@ header::before{content:'';position:absolute;inset:0;background:repeating-linear-
           <input type="date" id="fDate">
         </div>
       </div>
-      <div class="form-group">
-        <label>Kategori</label>
-        <select id="fCategory">
-          <option value="">Velg kategori (valgfritt)</option>
-          <option value="gitar">Gitar</option>
-          <option value="bass">Bass</option>
-          <option value="forsterker">Forsterker</option>
-          <option value="effekt">Effektpedal</option>
-          <option value="synth">Synth / Keys</option>
-          <option value="trommer">Trommer / Perkusjon</option>
-          <option value="mikrofon">Mikrofon</option>
-          <option value="studio">Studioiutstyr</option>
-          <option value="annet">Annet</option>
-        </select>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Kategori</label>
+          <select id="fCategory">
+            <option value="">Velg kategori (valgfritt)</option>
+            <option value="gitar">Gitar</option>
+            <option value="bass">Bass</option>
+            <option value="forsterker">Forsterker</option>
+            <option value="effekt">Effektpedal</option>
+            <option value="synth">Synth / Keys</option>
+            <option value="trommer">Trommer / Perkusjon</option>
+            <option value="mikrofon">Mikrofon</option>
+            <option value="studio">Studioutstyr</option>
+            <option value="annet">Annet</option>
+          </select>
+        </div>
+        <div class="form-group" id="subcatGroup" style="display:none">
+          <label>Underkategori</label>
+          <select id="fSubcategory">
+            <option value="">Velg type (valgfritt)</option>
+          </select>
+        </div>
       </div>
       <div class="form-group">
         <label>Notater</label>
@@ -388,6 +396,8 @@ function renderList() {
     }
 
     const catLabel = g.category ? getCategoryLabel(g.category) : '';
+    const subcatLabel = g.subcategory ? getSubcategoryLabel(g.subcategory) : '';
+    const fullCatLabel = catLabel + (subcatLabel ? ' \u2013 ' + subcatLabel : '');
     const dateStr = g.datePurchased ? new Date(g.datePurchased).toLocaleDateString('no', { year: 'numeric', month: 'short' }) : '';
 
     const brandModelTags = [];
@@ -398,7 +408,7 @@ function renderList() {
     html += `
       <div class="gear-card" onclick="navigate('#/gear/${g.id}')">
         <div class="gear-card-name">${esc(g.name)}</div>
-        <div class="gear-card-meta">${catLabel}${catLabel && dateStr ? ' &middot; ' : ''}${dateStr}</div>
+        <div class="gear-card-meta">${fullCatLabel}${fullCatLabel && dateStr ? ' &middot; ' : ''}${dateStr}</div>
         ${brandModelTags.length ? '<div class="gear-tags">' + brandModelTags.join('') + '</div>' : ''}
         <div class="gear-card-row">
           <div class="gear-card-paid">${g.pricePaid.toLocaleString('no')} <small>NOK</small></div>
@@ -413,12 +423,120 @@ function renderList() {
   el.innerHTML = html;
 }
 
+// ── Subcategories ──
+const SUBCATEGORIES = {
+  gitar: [
+    { value: 'electric', label: 'Elektrisk gitar' },
+    { value: 'acoustic', label: 'Akustisk gitar' },
+    { value: 'classical', label: 'Klassisk gitar' },
+    { value: 'semi-hollow', label: 'Semi-hollow' },
+    { value: 'hollow-body', label: 'Hollow body' },
+    { value: '12-string', label: '12-strengs' },
+    { value: 'guitar-other', label: 'Annet' },
+  ],
+  bass: [
+    { value: 'electric-bass', label: 'Elektrisk bass' },
+    { value: 'acoustic-bass', label: 'Akustisk bass' },
+    { value: 'fretless', label: 'Fretless' },
+    { value: '5-string', label: '5-strengs' },
+    { value: '6-string-bass', label: '6-strengs' },
+    { value: 'bass-other', label: 'Annet' },
+  ],
+  forsterker: [
+    { value: 'combo', label: 'Combo' },
+    { value: 'head', label: 'Topp (Head)' },
+    { value: 'cabinet', label: 'Kabinett' },
+    { value: 'tube-amp', label: 'R\u00f8rforsterker' },
+    { value: 'solid-state', label: 'Solid State' },
+    { value: 'modeling-amp', label: 'Modeling' },
+    { value: 'amp-other', label: 'Annet' },
+  ],
+  effekt: [
+    { value: 'overdrive', label: 'Overdrive / Distortion' },
+    { value: 'delay', label: 'Delay' },
+    { value: 'reverb-pedal', label: 'Reverb' },
+    { value: 'modulation', label: 'Modulation' },
+    { value: 'compressor', label: 'Compressor' },
+    { value: 'fuzz', label: 'Fuzz' },
+    { value: 'wah', label: 'Wah' },
+    { value: 'multi-fx', label: 'Multi-effekt' },
+    { value: 'fx-other', label: 'Annet' },
+  ],
+  synth: [
+    { value: 'analog-synth', label: 'Analog synth' },
+    { value: 'digital-synth', label: 'Digital synth' },
+    { value: 'modular-synth', label: 'Modul\u00e6r synth' },
+    { value: 'eurorack', label: 'Eurorack' },
+    { value: 'midi-controller', label: 'MIDI Controller' },
+    { value: 'digital-piano', label: 'Digital piano' },
+    { value: 'rackmount-synth', label: 'Rackmount synth' },
+    { value: 'sampler', label: 'Sampler' },
+    { value: 'synth-other', label: 'Annet' },
+  ],
+  trommer: [
+    { value: 'acoustic-drums', label: 'Akustiske trommer' },
+    { value: 'electronic-drums', label: 'Elektroniske trommer' },
+    { value: 'drum-machine', label: 'Trommemaskin' },
+    { value: 'cymbals', label: 'Cymbaler' },
+    { value: 'percussion', label: 'Perkusjon' },
+    { value: 'snare', label: 'Skarptromme' },
+    { value: 'drums-other', label: 'Annet' },
+  ],
+  mikrofon: [
+    { value: 'condenser', label: 'Kondensator' },
+    { value: 'dynamic', label: 'Dynamisk' },
+    { value: 'ribbon', label: 'B\u00e5ndmikrofon' },
+    { value: 'usb-mic', label: 'USB-mikrofon' },
+    { value: 'wireless', label: 'Tr\u00e5dl\u00f8s' },
+    { value: 'mic-other', label: 'Annet' },
+  ],
+  studio: [
+    { value: 'audio-interface', label: 'Audio interface' },
+    { value: 'mixer', label: 'Mikser' },
+    { value: 'monitor', label: 'Studiomonitor' },
+    { value: 'headphones', label: 'Hodetelefoner' },
+    { value: 'preamp', label: 'Preamp' },
+    { value: 'daw-controller', label: 'DAW Controller' },
+    { value: 'studio-other', label: 'Annet' },
+  ],
+};
+
+function updateSubcategoryOptions(categoryValue, selectedSubcat) {
+  const group = document.getElementById('subcatGroup');
+  const select = document.getElementById('fSubcategory');
+  const subs = SUBCATEGORIES[categoryValue];
+
+  if (!subs) {
+    group.style.display = 'none';
+    select.innerHTML = '<option value="">Velg type (valgfritt)</option>';
+    return;
+  }
+
+  group.style.display = '';
+  select.innerHTML = '<option value="">Velg type (valgfritt)</option>' +
+    subs.map(s => `<option value="${s.value}"${selectedSubcat === s.value ? ' selected' : ''}>${s.label}</option>`).join('');
+}
+
+function getSubcategoryLabel(value) {
+  for (const subs of Object.values(SUBCATEGORIES)) {
+    const found = subs.find(s => s.value === value);
+    if (found) return found.label;
+  }
+  return value || '';
+}
+
+document.getElementById('fCategory').addEventListener('change', (e) => {
+  updateSubcategoryOptions(e.target.value);
+});
+
 // ── Add form ──
 function initAddForm() {
   document.getElementById('fName').value = '';
   document.getElementById('fPrice').value = '';
   document.getElementById('fDate').value = new Date().toISOString().split('T')[0];
   document.getElementById('fCategory').value = '';
+  document.getElementById('fSubcategory').value = '';
+  document.getElementById('subcatGroup').style.display = 'none';
   document.getElementById('fNotes').value = '';
   document.getElementById('fMake').value = '';
   document.getElementById('fModel').value = '';
@@ -435,6 +553,7 @@ document.getElementById('saveGearBtn').onclick = () => {
   const price = parseFloat(document.getElementById('fPrice').value);
   const date = document.getElementById('fDate').value;
   const category = document.getElementById('fCategory').value;
+  const subcategory = document.getElementById('fSubcategory').value;
   const notes = document.getElementById('fNotes').value.trim();
   const make = document.getElementById('fMake').value;
   const model = document.getElementById('fModel').value;
@@ -446,6 +565,7 @@ document.getElementById('saveGearBtn').onclick = () => {
   if (!date) { document.getElementById('fDate').focus(); return; }
 
   const gear = { name, pricePaid: price, currency: 'NOK', datePurchased: date, category, notes };
+  if (subcategory) gear.subcategory = subcategory;
   if (make) gear.make = make;
   if (model) gear.model = model;
   if (year) gear.year = year;
@@ -638,6 +758,7 @@ function renderDetail(id) {
   const latest = priceData.length > 0 ? priceData[priceData.length - 1] : null;
 
   const catLabel = gear.category ? getCategoryLabel(gear.category) : '';
+  const subcatLabel = gear.subcategory ? getSubcategoryLabel(gear.subcategory) : '';
   const dateStr = gear.datePurchased ? new Date(gear.datePurchased).toLocaleDateString('no', { year: 'numeric', month: 'long', day: 'numeric' }) : '';
 
   let changeVal = null;
@@ -653,6 +774,7 @@ function renderDetail(id) {
         <h2>${esc(gear.name)}</h2>
         <div class="detail-tags">
           ${catLabel ? `<span class="detail-tag">${catLabel}</span>` : ''}
+          ${subcatLabel ? `<span class="detail-tag">${subcatLabel}</span>` : ''}
           ${dateStr ? `<span class="detail-tag">Kj&oslash;pt ${dateStr}</span>` : ''}
           ${gear.reverbQuery ? `<span class="detail-tag reverb-badge">REVERB</span>` : ''}
         </div>
@@ -855,20 +977,28 @@ function showEditModal(gear) {
           <input type="date" id="editDate" value="${gear.datePurchased || ''}">
         </div>
       </div>
-      <div class="form-group">
-        <label>Kategori</label>
-        <select id="editCategory">
-          <option value="">Velg kategori</option>
-          <option value="gitar"${gear.category === 'gitar' ? ' selected' : ''}>Gitar</option>
-          <option value="bass"${gear.category === 'bass' ? ' selected' : ''}>Bass</option>
-          <option value="forsterker"${gear.category === 'forsterker' ? ' selected' : ''}>Forsterker</option>
-          <option value="effekt"${gear.category === 'effekt' ? ' selected' : ''}>Effektpedal</option>
-          <option value="synth"${gear.category === 'synth' ? ' selected' : ''}>Synth / Keys</option>
-          <option value="trommer"${gear.category === 'trommer' ? ' selected' : ''}>Trommer / Perkusjon</option>
-          <option value="mikrofon"${gear.category === 'mikrofon' ? ' selected' : ''}>Mikrofon</option>
-          <option value="studio"${gear.category === 'studio' ? ' selected' : ''}>Studioutstyr</option>
-          <option value="annet"${gear.category === 'annet' ? ' selected' : ''}>Annet</option>
-        </select>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Kategori</label>
+          <select id="editCategory">
+            <option value="">Velg kategori</option>
+            <option value="gitar"${gear.category === 'gitar' ? ' selected' : ''}>Gitar</option>
+            <option value="bass"${gear.category === 'bass' ? ' selected' : ''}>Bass</option>
+            <option value="forsterker"${gear.category === 'forsterker' ? ' selected' : ''}>Forsterker</option>
+            <option value="effekt"${gear.category === 'effekt' ? ' selected' : ''}>Effektpedal</option>
+            <option value="synth"${gear.category === 'synth' ? ' selected' : ''}>Synth / Keys</option>
+            <option value="trommer"${gear.category === 'trommer' ? ' selected' : ''}>Trommer / Perkusjon</option>
+            <option value="mikrofon"${gear.category === 'mikrofon' ? ' selected' : ''}>Mikrofon</option>
+            <option value="studio"${gear.category === 'studio' ? ' selected' : ''}>Studioutstyr</option>
+            <option value="annet"${gear.category === 'annet' ? ' selected' : ''}>Annet</option>
+          </select>
+        </div>
+        <div class="form-group" id="editSubcatGroup" style="${gear.category && SUBCATEGORIES[gear.category] ? '' : 'display:none'}">
+          <label>Underkategori</label>
+          <select id="editSubcategory">
+            <option value="">Velg type</option>
+          </select>
+        </div>
       </div>
       <div class="form-group">
         <label>Notater</label>
@@ -881,6 +1011,27 @@ function showEditModal(gear) {
     </div>`;
 
   document.body.appendChild(overlay);
+
+  // Set up subcategory in edit modal
+  const editCatEl = document.getElementById('editCategory');
+  const editSubGroup = document.getElementById('editSubcatGroup');
+  const editSubEl = document.getElementById('editSubcategory');
+
+  function updateEditSubcats(catVal, selectedSub) {
+    const subs = SUBCATEGORIES[catVal];
+    if (!subs) {
+      editSubGroup.style.display = 'none';
+      editSubEl.innerHTML = '<option value="">Velg type</option>';
+      return;
+    }
+    editSubGroup.style.display = '';
+    editSubEl.innerHTML = '<option value="">Velg type</option>' +
+      subs.map(s => `<option value="${s.value}"${selectedSub === s.value ? ' selected' : ''}>${s.label}</option>`).join('');
+  }
+
+  updateEditSubcats(gear.category, gear.subcategory);
+  editCatEl.addEventListener('change', () => updateEditSubcats(editCatEl.value));
+
   overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
   document.getElementById('cancelEditBtn').onclick = () => overlay.remove();
   document.getElementById('saveEditBtn').onclick = () => {
@@ -888,12 +1039,13 @@ function showEditModal(gear) {
     const price = parseFloat(document.getElementById('editPrice').value);
     const date = document.getElementById('editDate').value;
     const category = document.getElementById('editCategory').value;
+    const subcategory = document.getElementById('editSubcategory').value;
     const notes = document.getElementById('editNotes').value.trim();
 
     if (!name) return;
     if (isNaN(price) || price < 0) return;
 
-    updateGear(gear.id, { name, pricePaid: price, datePurchased: date, category, notes });
+    updateGear(gear.id, { name, pricePaid: price, datePurchased: date, category, subcategory, notes });
     overlay.remove();
     renderDetail(gear.id);
     updateHeaderStats();

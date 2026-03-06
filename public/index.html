@@ -132,6 +132,13 @@ header::before{content:'';position:absolute;inset:0;background:repeating-linear-
 @keyframes spin{to{transform:rotate(360deg)}}
 .reverb-badge{font-size:0.6rem;background:rgba(254,204,2,0.1);color:var(--accent);padding:2px 6px;border-radius:4px;font-weight:700;border:1px solid rgba(254,204,2,0.2);}
 
+/* Brand/Model tags */
+.gear-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
+.gear-tag{font-size:0.65rem;padding:2px 8px;border-radius:4px;border:1px solid var(--border);color:var(--muted);background:var(--bg3);}
+.gear-tag strong{color:var(--text);font-weight:700;}
+.gear-tag--brand{border-color:rgba(254,204,2,0.25);background:rgba(254,204,2,0.05);}
+.gear-tag--brand strong{color:var(--accent);}
+
 /* Autocomplete */
 .ac-wrap{position:relative;}
 .ac-dropdown{position:absolute;top:100%;left:0;right:0;z-index:50;background:var(--bg2);border:1px solid var(--border);border-top:none;border-radius:0 0 8px 8px;max-height:340px;overflow-y:auto;display:none;}
@@ -383,10 +390,16 @@ function renderList() {
     const catLabel = g.category ? getCategoryLabel(g.category) : '';
     const dateStr = g.datePurchased ? new Date(g.datePurchased).toLocaleDateString('no', { year: 'numeric', month: 'short' }) : '';
 
+    const brandModelTags = [];
+    if (g.make) brandModelTags.push(`<span class="gear-tag gear-tag--brand"><strong>${esc(g.make)}</strong></span>`);
+    if (g.model) brandModelTags.push(`<span class="gear-tag">Model: <strong>${esc(g.model)}</strong></span>`);
+    if (g.year) brandModelTags.push(`<span class="gear-tag">${g.year}</span>`);
+
     html += `
       <div class="gear-card" onclick="navigate('#/gear/${g.id}')">
         <div class="gear-card-name">${esc(g.name)}</div>
         <div class="gear-card-meta">${catLabel}${catLabel && dateStr ? ' &middot; ' : ''}${dateStr}</div>
+        ${brandModelTags.length ? '<div class="gear-tags">' + brandModelTags.join('') + '</div>' : ''}
         <div class="gear-card-row">
           <div class="gear-card-paid">${g.pricePaid.toLocaleString('no')} <small>NOK</small></div>
           <div>
@@ -584,7 +597,9 @@ async function fetchAcSuggestions(query) {
         document.getElementById('acBadge').innerHTML = `
           <div class="ac-selected-badge">
             <span class="reverb-badge">REVERB</span>
-            ${esc(make)}${model ? ' ' + esc(model) : ''}${year ? ' \u00b7 ' + year : ''}
+            ${make ? 'Brand: <strong>' + esc(make) + '</strong>' : ''}
+            ${model ? ' &middot; Model: <strong>' + esc(model) + '</strong>' : ''}
+            ${year ? ' &middot; ' + year : ''}
             <span class="ac-x" title="Fjern kobling">&times;</span>
           </div>`;
 
@@ -639,11 +654,14 @@ function renderDetail(id) {
         <div class="detail-tags">
           ${catLabel ? `<span class="detail-tag">${catLabel}</span>` : ''}
           ${dateStr ? `<span class="detail-tag">Kj&oslash;pt ${dateStr}</span>` : ''}
-          ${gear.make ? `<span class="detail-tag">${esc(gear.make)}</span>` : ''}
-          ${gear.model && gear.model !== gear.make ? `<span class="detail-tag">${esc(gear.model)}</span>` : ''}
-          ${gear.year ? `<span class="detail-tag">${gear.year}</span>` : ''}
           ${gear.reverbQuery ? `<span class="detail-tag reverb-badge">REVERB</span>` : ''}
         </div>
+        ${gear.make || gear.model || gear.year ? `
+        <div class="gear-tags" style="margin-top:10px">
+          ${gear.make ? `<span class="gear-tag gear-tag--brand">Brand: <strong>${esc(gear.make)}</strong></span>` : ''}
+          ${gear.model ? `<span class="gear-tag">Model: <strong>${esc(gear.model)}</strong></span>` : ''}
+          ${gear.year ? `<span class="gear-tag">&Aring;r: <strong>${gear.year}</strong></span>` : ''}
+        </div>` : ''}
         ${gear.notes ? `<div class="detail-notes">&laquo;${esc(gear.notes)}&raquo;</div>` : ''}
       </div>
       <div class="detail-price-box">

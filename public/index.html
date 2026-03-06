@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gearsamler</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+:root{--bg:#060610;--bg2:#0a0a1a;--bg3:#0f0f22;--border:#1a1a3a;--accent:#FECC02;--green:#00ff88;--red:#ff3355;--text:#e8e8ff;--dim:#5050aa;--muted:#8888cc;--mono:'Courier New',monospace;--radius:12px;--font:'Segoe UI',system-ui,sans-serif;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;}
+header{background:linear-gradient(135deg,#1a0a2e 0%,#0d0d2b 100%);border-bottom:4px solid var(--accent);padding:18px 28px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;position:relative;overflow:hidden;}
+header::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0px,transparent 80px,rgba(254,204,2,0.03) 80px,rgba(254,204,2,0.03) 84px);pointer-events:none;}
+.logo{position:relative;z-index:1;cursor:pointer;}.logo h1{font-size:1.9rem;font-weight:900;color:var(--accent);text-shadow:0 0 30px #FECC0288;letter-spacing:-0.02em;}
+.logo span{font-size:0.8rem;color:rgba(255,255,255,0.45);margin-top:2px;display:block;}
+.header-right{display:flex;align-items:center;gap:12px;position:relative;z-index:1;}
+.gear-count{background:var(--accent);color:#1a0a2e;font-size:0.78rem;font-weight:800;padding:5px 14px;border-radius:99px;}
+.total-val{font-family:var(--mono);font-size:0.82rem;color:var(--accent);background:rgba(254,204,2,0.08);padding:5px 12px;border-radius:8px;border:1px solid rgba(254,204,2,0.2);}
+
+.main{max-width:1100px;margin:0 auto;padding:26px 18px;}
+.btn{border:none;border-radius:8px;font-weight:700;cursor:pointer;transition:all 0.2s;padding:13px 24px;font-size:0.92rem;}
+.btn:hover{transform:translateY(-1px);}.btn:disabled{opacity:0.4;cursor:not-allowed;transform:none;}
+.btn-accent{background:var(--accent);color:#1a0a2e;text-transform:uppercase;box-shadow:0 0 20px #FECC0255;}
+.btn-accent:hover{box-shadow:0 0 40px #FECC0288;}
+.btn-sm{padding:8px 16px;font-size:0.82rem;}
+.btn-danger{background:rgba(255,51,85,0.15);color:var(--red);border:1px solid var(--red);}
+.btn-danger:hover{background:rgba(255,51,85,0.3);}
+.btn-ghost{background:var(--bg3);color:var(--muted);border:1px solid var(--border);}
+.btn-ghost:hover{border-color:var(--accent);color:var(--accent);}
+
+.back-btn{display:inline-flex;align-items:center;gap:8px;background:var(--bg2);border:1px solid var(--border);color:var(--accent);padding:8px 16px;border-radius:8px;font-size:0.82rem;font-weight:700;cursor:pointer;margin-bottom:20px;transition:all 0.15s;}
+.back-btn:hover{border-color:var(--accent);background:rgba(254,204,2,0.06);}
+
+.empty-state{text-align:center;padding:80px 20px;color:var(--dim);}.empty-state .big{font-size:4rem;margin-bottom:16px;}.empty-state p{font-size:1rem;margin-bottom:24px;color:var(--muted);}
+
+/* List view */
+.list-header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:20px;}
+.list-header h2{font-size:1.3rem;color:var(--text);}
+.gear-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;}
+.gear-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:18px;cursor:pointer;transition:all 0.2s;position:relative;overflow:hidden;}
+.gear-card:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 8px 30px rgba(254,204,2,0.08);}
+.gear-card-name{font-size:1.05rem;font-weight:800;color:var(--text);margin-bottom:6px;}
+.gear-card-meta{font-size:0.75rem;color:var(--dim);margin-bottom:12px;}
+.gear-card-row{display:flex;justify-content:space-between;align-items:flex-end;}
+.gear-card-paid{font-family:var(--mono);font-size:1.2rem;font-weight:800;color:var(--accent);}
+.gear-card-paid small{font-size:0.7rem;color:var(--dim);font-weight:400;}
+.gear-card-change{font-family:var(--mono);font-size:0.85rem;font-weight:700;padding:3px 10px;border-radius:6px;}
+.chg-up{background:rgba(0,255,136,0.1);color:var(--green);border:1px solid rgba(0,255,136,0.3);}
+.chg-dn{background:rgba(255,51,85,0.1);color:var(--red);border:1px solid rgba(255,51,85,0.3);}
+.chg-na{color:var(--dim);font-size:0.75rem;}
+.gear-card-current{font-size:0.72rem;color:var(--muted);margin-top:4px;text-align:right;}
+
+/* Form */
+.form-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:26px;max-width:600px;}
+.form-card h2{font-size:1.3rem;margin-bottom:22px;color:var(--text);}
+.form-group{margin-bottom:18px;}
+.form-group label{display:block;font-size:0.78rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--dim);margin-bottom:6px;font-weight:600;}
+.form-group input,.form-group textarea,.form-group select{width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:12px 14px;border-radius:8px;font-size:0.95rem;font-family:var(--font);transition:border-color 0.2s;}
+.form-group input:focus,.form-group textarea:focus,.form-group select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 20px #FECC0222;}
+.form-group textarea{resize:vertical;min-height:60px;}
+.form-group select{cursor:pointer;}
+.form-group select option{background:var(--bg3);color:var(--text);}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.form-actions{display:flex;gap:10px;margin-top:8px;}
+
+/* Detail */
+.detail-header{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:22px 26px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px;}
+.detail-title h2{font-size:1.6rem;font-weight:900;color:var(--text);margin-bottom:6px;}
+.detail-tags{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
+.detail-tag{font-size:0.73rem;color:var(--muted);background:var(--bg3);padding:3px 10px;border-radius:4px;border:1px solid var(--border);}
+.detail-notes{font-size:0.82rem;color:var(--muted);margin-top:10px;font-style:italic;}
+.detail-price-box{text-align:right;}
+.detail-price-label{font-size:0.68rem;color:var(--dim);margin-bottom:4px;}
+.detail-price-big{font-size:2.4rem;font-weight:900;font-family:var(--mono);color:var(--accent);line-height:1;}
+
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:11px;margin-bottom:18px;}
+.kpi-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:13px 15px;transition:border-color 0.2s;}
+.kpi-card:hover{border-color:rgba(254,204,2,0.3);}
+.kpi-lbl{font-size:0.65rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--dim);margin-bottom:5px;}
+.kpi-val{font-size:1.15rem;font-weight:800;font-family:var(--mono);}
+.kv-y{color:var(--accent)}.kv-g{color:var(--green)}.kv-r{color:var(--red)}
+
+.chart-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:18px;}
+.chart-card h3{font-size:0.72rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;}
+.chart-card h3 em{font-style:normal;font-size:0.65rem;color:var(--dim);font-weight:400;}
+
+.price-form-inline{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:18px;}
+.price-form-inline h3{font-size:0.78rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:14px;}
+.price-form-row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;}
+.price-form-row .form-group{margin-bottom:0;flex:1;min-width:120px;}
+.price-form-row .form-group label{margin-bottom:4px;}
+.price-form-row .form-group input{padding:10px 12px;font-size:0.88rem;}
+
+.detail-actions{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap;}
+
+.confirm-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:100;}
+.confirm-box{background:var(--bg2);border:1px solid var(--red);border-radius:14px;padding:28px;max-width:400px;text-align:center;}
+.confirm-box p{margin-bottom:18px;font-size:0.95rem;}
+.confirm-box .btns{display:flex;gap:10px;justify-content:center;}
+
+/* Edit modal */
+.edit-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px;}
+.edit-box{background:var(--bg2);border:1px solid var(--accent);border-radius:14px;padding:28px;max-width:500px;width:100%;}
+.edit-box h3{font-size:1.1rem;color:var(--text);margin-bottom:18px;}
+
+/* Reverb */
+.reverb-section{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:18px;}
+.reverb-section h3{font-size:0.78rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+.reverb-section h3 img{height:16px;opacity:0.7;}
+.reverb-search-row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px;}
+.reverb-search-row .form-group{margin-bottom:0;flex:1;min-width:180px;}
+.reverb-search-row .form-group input{padding:10px 12px;font-size:0.88rem;}
+.reverb-stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin-bottom:14px;}
+.reverb-stat{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 12px;text-align:center;}
+.reverb-stat .rs-lbl{font-size:0.62rem;text-transform:uppercase;color:var(--dim);margin-bottom:3px;}
+.reverb-stat .rs-val{font-size:1rem;font-weight:800;font-family:var(--mono);}
+.reverb-listings{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;}
+.reverb-listing{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px;display:flex;gap:12px;transition:border-color 0.2s;}
+.reverb-listing:hover{border-color:var(--accent);}
+.reverb-listing img{width:70px;height:70px;object-fit:cover;border-radius:6px;background:var(--bg);}
+.reverb-listing-info{flex:1;min-width:0;}
+.reverb-listing-title{font-size:0.82rem;font-weight:600;color:var(--text);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.reverb-listing-meta{font-size:0.7rem;color:var(--dim);margin-bottom:4px;}
+.reverb-listing-price{font-family:var(--mono);font-size:0.95rem;font-weight:800;color:var(--accent);}
+.reverb-listing-link{font-size:0.68rem;color:var(--muted);text-decoration:none;display:inline-block;margin-top:4px;}
+.reverb-listing-link:hover{color:var(--accent);text-decoration:underline;}
+.reverb-save-row{display:flex;gap:10px;align-items:center;margin-top:14px;padding-top:14px;border-top:1px solid var(--border);}
+.reverb-save-row span{font-size:0.82rem;color:var(--muted);}
+.reverb-loading{text-align:center;padding:24px;color:var(--muted);font-size:0.88rem;}
+.reverb-error{text-align:center;padding:16px;color:var(--red);font-size:0.85rem;background:rgba(255,51,85,0.06);border-radius:8px;}
+.spinner-sm{display:inline-block;width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.6s linear infinite;vertical-align:middle;margin-right:8px;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.reverb-badge{font-size:0.6rem;background:rgba(254,204,2,0.1);color:var(--accent);padding:2px 6px;border-radius:4px;font-weight:700;border:1px solid rgba(254,204,2,0.2);}
+
+@media(max-width:700px){
+  .gear-grid{grid-template-columns:1fr;}
+  .form-row{grid-template-columns:1fr;}
+  .detail-header{flex-direction:column;}
+  .detail-price-box{text-align:left;}
+  .detail-price-big{font-size:1.8rem;}
+  .kpi-row{grid-template-columns:repeat(2,1fr);}
+  .price-form-row{flex-direction:column;}
+  .reverb-listings{grid-template-columns:1fr;}
+  .reverb-search-row{flex-direction:column;}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo" id="logoBtn">
+    <h1>GEARSAMLER</h1>
+    <span>Hold oversikt over musikk-gearet ditt</span>
+  </div>
+  <div class="header-right">
+    <span class="gear-count" id="gearCountEl">0 gear</span>
+    <span class="total-val" id="totalValEl">0 kr investert</span>
+  </div>
+</header>
+
+<div id="viewList" style="display:none">
+  <div class="main">
+    <div class="list-header">
+      <h2>Min samling</h2>
+      <button class="btn btn-accent" onclick="navigate('#/add')">+ Legg til gear</button>
+    </div>
+    <div id="gearListContent"></div>
+  </div>
+</div>
+
+<div id="viewAdd" style="display:none">
+  <div class="main">
+    <button class="back-btn" onclick="navigate('#/')">&#8592; Tilbake</button>
+    <div class="form-card">
+      <h2>Legg til gear</h2>
+      <div class="form-group">
+        <label>Navn</label>
+        <input type="text" id="fName" placeholder="F.eks. Fender Stratocaster MIM">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Pris betalt (NOK)</label>
+          <input type="number" id="fPrice" placeholder="8500" min="0" step="1">
+        </div>
+        <div class="form-group">
+          <label>Dato kjøpt</label>
+          <input type="date" id="fDate">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Kategori</label>
+        <select id="fCategory">
+          <option value="">Velg kategori (valgfritt)</option>
+          <option value="gitar">Gitar</option>
+          <option value="bass">Bass</option>
+          <option value="forsterker">Forsterker</option>
+          <option value="effekt">Effektpedal</option>
+          <option value="synth">Synth / Keys</option>
+          <option value="trommer">Trommer / Perkusjon</option>
+          <option value="mikrofon">Mikrofon</option>
+          <option value="studio">Studioiutstyr</option>
+          <option value="annet">Annet</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Notater</label>
+        <textarea id="fNotes" placeholder="Tilstand, hvor kjøpt, serienummer..."></textarea>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-accent" id="saveGearBtn">Lagre</button>
+        <button class="btn btn-ghost" onclick="navigate('#/')">Avbryt</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="viewDetail" style="display:none">
+  <div class="main" id="detailContent"></div>
+</div>
+
+<script>
+// ── Data layer ──
+function loadCollection() {
+  try { return JSON.parse(localStorage.getItem('gear_collection') || '[]'); }
+  catch { return []; }
+}
+function saveCollection(items) {
+  localStorage.setItem('gear_collection', JSON.stringify(items));
+}
+function loadPriceHistory() {
+  try { return JSON.parse(localStorage.getItem('gear_price_history') || '{}'); }
+  catch { return {}; }
+}
+function savePriceHistory(history) {
+  localStorage.setItem('gear_price_history', JSON.stringify(history));
+}
+
+function addGear(gear) {
+  const items = loadCollection();
+  gear.id = 'gear_' + Date.now();
+  gear.createdAt = new Date().toISOString();
+  items.push(gear);
+  saveCollection(items);
+  return gear;
+}
+
+function updateGear(id, updates) {
+  const items = loadCollection();
+  const idx = items.findIndex(g => g.id === id);
+  if (idx === -1) return null;
+  Object.assign(items[idx], updates);
+  saveCollection(items);
+  return items[idx];
+}
+
+function removeGear(id) {
+  let items = loadCollection();
+  items = items.filter(g => g.id !== id);
+  saveCollection(items);
+  const history = loadPriceHistory();
+  delete history[id];
+  savePriceHistory(history);
+}
+
+function addPricePoint(gearId, price, date, source) {
+  const history = loadPriceHistory();
+  if (!history[gearId]) history[gearId] = [];
+  history[gearId].push({
+    date: date,
+    price: parseFloat(price),
+    currency: 'NOK',
+    source: source || 'manual'
+  });
+  history[gearId].sort((a, b) => a.date.localeCompare(b.date));
+  savePriceHistory(history);
+}
+
+function getLatestPrice(gearId) {
+  const history = loadPriceHistory();
+  const entries = history[gearId];
+  if (!entries || entries.length === 0) return null;
+  return entries[entries.length - 1];
+}
+
+// ── Header stats ──
+function updateHeaderStats() {
+  const items = loadCollection();
+  const count = items.length;
+  const total = items.reduce((s, g) => s + (g.pricePaid || 0), 0);
+  document.getElementById('gearCountEl').textContent = count + ' gear';
+  document.getElementById('totalValEl').textContent = total.toLocaleString('no') + ' kr investert';
+}
+
+// ── Router ──
+const views = {
+  list: document.getElementById('viewList'),
+  add: document.getElementById('viewAdd'),
+  detail: document.getElementById('viewDetail'),
+};
+
+function navigate(hash) {
+  location.hash = hash;
+}
+
+let activeChart = null;
+
+function router() {
+  const hash = location.hash || '#/';
+  Object.values(views).forEach(v => v.style.display = 'none');
+  if (activeChart) { activeChart.destroy(); activeChart = null; }
+  updateHeaderStats();
+
+  if (hash === '#/add') {
+    views.add.style.display = 'block';
+    initAddForm();
+  } else if (hash.startsWith('#/gear/')) {
+    const id = hash.split('#/gear/')[1];
+    views.detail.style.display = 'block';
+    renderDetail(id);
+  } else {
+    views.list.style.display = 'block';
+    renderList();
+  }
+}
+
+window.addEventListener('hashchange', router);
+window.addEventListener('load', router);
+
+document.getElementById('logoBtn').onclick = () => navigate('#/');
+
+// ── List view ──
+function renderList() {
+  const el = document.getElementById('gearListContent');
+  const items = loadCollection();
+
+  if (items.length === 0) {
+    el.innerHTML = `
+      <div class="empty-state">
+        <div class="big">&#127928;</div>
+        <p>Du har ikke lagt til noe gear enn&aring;. Kom i gang!</p>
+        <button class="btn btn-accent" onclick="navigate('#/add')">+ Legg til ditt f&oslash;rste gear</button>
+      </div>`;
+    return;
+  }
+
+  let html = '<div class="gear-grid">';
+  items.forEach(g => {
+    const latest = getLatestPrice(g.id);
+    let changeHtml = '<span class="chg-na">Ingen prisdata</span>';
+    let currentHtml = '';
+
+    if (latest) {
+      const diff = ((latest.price - g.pricePaid) / g.pricePaid * 100);
+      const isUp = diff >= 0;
+      changeHtml = `<span class="gear-card-change ${isUp ? 'chg-up' : 'chg-dn'}">${isUp ? '+' : ''}${diff.toFixed(1)}%</span>`;
+      currentHtml = `<div class="gear-card-current">Siste: ${latest.price.toLocaleString('no')} kr</div>`;
+    }
+
+    const catLabel = g.category ? getCategoryLabel(g.category) : '';
+    const dateStr = g.datePurchased ? new Date(g.datePurchased).toLocaleDateString('no', { year: 'numeric', month: 'short' }) : '';
+
+    html += `
+      <div class="gear-card" onclick="navigate('#/gear/${g.id}')">
+        <div class="gear-card-name">${esc(g.name)}</div>
+        <div class="gear-card-meta">${catLabel}${catLabel && dateStr ? ' &middot; ' : ''}${dateStr}</div>
+        <div class="gear-card-row">
+          <div class="gear-card-paid">${g.pricePaid.toLocaleString('no')} <small>NOK</small></div>
+          <div>
+            ${changeHtml}
+            ${currentHtml}
+          </div>
+        </div>
+      </div>`;
+  });
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+// ── Add form ──
+function initAddForm() {
+  document.getElementById('fName').value = '';
+  document.getElementById('fPrice').value = '';
+  document.getElementById('fDate').value = new Date().toISOString().split('T')[0];
+  document.getElementById('fCategory').value = '';
+  document.getElementById('fNotes').value = '';
+}
+
+document.getElementById('saveGearBtn').onclick = () => {
+  const name = document.getElementById('fName').value.trim();
+  const price = parseFloat(document.getElementById('fPrice').value);
+  const date = document.getElementById('fDate').value;
+  const category = document.getElementById('fCategory').value;
+  const notes = document.getElementById('fNotes').value.trim();
+
+  if (!name) { document.getElementById('fName').focus(); return; }
+  if (isNaN(price) || price < 0) { document.getElementById('fPrice').focus(); return; }
+  if (!date) { document.getElementById('fDate').focus(); return; }
+
+  addGear({ name, pricePaid: price, currency: 'NOK', datePurchased: date, category, notes });
+  navigate('#/');
+};
+
+// ── Detail view ──
+function renderDetail(id) {
+  const el = document.getElementById('detailContent');
+  const items = loadCollection();
+  const gear = items.find(g => g.id === id);
+
+  if (!gear) {
+    el.innerHTML = '<button class="back-btn" onclick="navigate(\'#/\')">&#8592; Tilbake</button><div class="empty-state"><div class="big">&#10067;</div><p>Fant ikke dette gearet.</p></div>';
+    return;
+  }
+
+  const history = loadPriceHistory();
+  const priceData = history[id] || [];
+  const latest = priceData.length > 0 ? priceData[priceData.length - 1] : null;
+
+  const catLabel = gear.category ? getCategoryLabel(gear.category) : '';
+  const dateStr = gear.datePurchased ? new Date(gear.datePurchased).toLocaleDateString('no', { year: 'numeric', month: 'long', day: 'numeric' }) : '';
+
+  let changeVal = null;
+  if (latest) {
+    changeVal = ((latest.price - gear.pricePaid) / gear.pricePaid * 100);
+  }
+
+  el.innerHTML = `
+    <button class="back-btn" onclick="navigate('#/')">&#8592; Tilbake til samlingen</button>
+
+    <div class="detail-header">
+      <div class="detail-title">
+        <h2>${esc(gear.name)}</h2>
+        <div class="detail-tags">
+          ${catLabel ? `<span class="detail-tag">${catLabel}</span>` : ''}
+          ${dateStr ? `<span class="detail-tag">Kj&oslash;pt ${dateStr}</span>` : ''}
+        </div>
+        ${gear.notes ? `<div class="detail-notes">&laquo;${esc(gear.notes)}&raquo;</div>` : ''}
+      </div>
+      <div class="detail-price-box">
+        <div class="detail-price-label">BETALT</div>
+        <div class="detail-price-big">${gear.pricePaid.toLocaleString('no')} <span style="font-size:0.5em;color:var(--dim)">NOK</span></div>
+      </div>
+    </div>
+
+    <div class="kpi-row">
+      <div class="kpi-card">
+        <div class="kpi-lbl">Betalt</div>
+        <div class="kpi-val kv-y">${gear.pricePaid.toLocaleString('no')} kr</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-lbl">Siste markedspris</div>
+        <div class="kpi-val ${changeVal !== null ? (changeVal >= 0 ? 'kv-g' : 'kv-r') : 'kv-y'}">${latest ? latest.price.toLocaleString('no') + ' kr' : '&mdash;'}</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-lbl">Endring</div>
+        <div class="kpi-val ${changeVal !== null ? (changeVal >= 0 ? 'kv-g' : 'kv-r') : ''}">${changeVal !== null ? (changeVal >= 0 ? '+' : '') + changeVal.toFixed(1) + '%' : '&mdash;'}</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-lbl">Antall prispunkter</div>
+        <div class="kpi-val kv-y">${priceData.length}</div>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <h3>PRISUTVIKLING <em>${priceData.length > 0 ? priceData[0].date + ' &ndash; ' + priceData[priceData.length - 1].date : 'Legg til prispunkter for &aring; se graf'}</em></h3>
+      <div style="height:260px;${priceData.length < 2 ? 'display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:0.9rem' : ''}">
+        ${priceData.length < 2
+          ? '<span>Legg til minst 2 prispunkter for &aring; vise graf</span>'
+          : '<canvas id="priceChart"></canvas>'}
+      </div>
+    </div>
+
+    <div class="price-form-inline">
+      <h3>Legg til prispunkt</h3>
+      <div class="price-form-row">
+        <div class="form-group">
+          <label>Markedspris (NOK)</label>
+          <input type="number" id="ppPrice" placeholder="7500" min="0" step="1">
+        </div>
+        <div class="form-group">
+          <label>Dato</label>
+          <input type="date" id="ppDate" value="${new Date().toISOString().split('T')[0]}">
+        </div>
+        <div style="display:flex;align-items:flex-end">
+          <button class="btn btn-accent btn-sm" id="addPriceBtn">+ Legg til</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="reverb-section">
+      <h3>REVERB MARKEDSPRIS <span class="reverb-badge">REVERB.COM</span></h3>
+      <div class="reverb-search-row">
+        <div class="form-group">
+          <label>S&oslash;keord p&aring; Reverb</label>
+          <input type="text" id="reverbQuery" value="${esc(gear.reverbQuery || gear.name)}" placeholder="S&oslash;k p&aring; Reverb...">
+        </div>
+        <div style="display:flex;align-items:flex-end">
+          <button class="btn btn-accent btn-sm" id="reverbSearchBtn">Hent priser</button>
+        </div>
+      </div>
+      <div id="reverbResults"></div>
+    </div>
+
+    <div class="detail-actions">
+      <button class="btn btn-ghost btn-sm" id="editGearBtn">Rediger gear</button>
+      <button class="btn btn-danger btn-sm" id="deleteGearBtn">Slett gear</button>
+    </div>`;
+
+  // Price chart
+  if (priceData.length >= 2) {
+    const ctx = document.getElementById('priceChart');
+    const pointColors = priceData.map(p => p.source === 'reverb' ? '#00ff88' : '#FECC02');
+    activeChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: priceData.map(p => p.date),
+        datasets: [
+          {
+            label: 'Markedspris',
+            data: priceData.map(p => p.price),
+            borderColor: '#FECC02',
+            backgroundColor: 'rgba(254,204,2,0.08)',
+            borderWidth: 2,
+            pointRadius: 5,
+            pointBackgroundColor: pointColors,
+            pointBorderColor: pointColors,
+            fill: true,
+            tension: 0.3,
+          },
+          {
+            label: 'Betalt',
+            data: priceData.map(() => gear.pricePaid),
+            borderColor: '#ff3355',
+            borderWidth: 1,
+            borderDash: [6, 4],
+            pointRadius: 0,
+            fill: false,
+          }
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: true,
+            labels: { color: '#9090cc', font: { size: 10 } },
+          },
+          tooltip: {
+            callbacks: {
+              afterLabel: (ctx) => {
+                if (ctx.datasetIndex === 0) {
+                  const p = priceData[ctx.dataIndex];
+                  return p.source === 'reverb' ? '(Reverb snitt)' : '(manuell)';
+                }
+                return '';
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            ticks: { color: '#5050aa', font: { size: 9 }, maxTicksLimit: 10 },
+            grid: { color: '#1a1a3a' },
+          },
+          y: {
+            ticks: {
+              color: '#5050aa',
+              font: { size: 9 },
+              callback: v => v.toLocaleString('no') + ' kr'
+            },
+            grid: { color: '#1a1a3a' },
+          },
+        },
+      },
+    });
+  }
+
+  // Add price point
+  document.getElementById('addPriceBtn').onclick = () => {
+    const price = parseFloat(document.getElementById('ppPrice').value);
+    const date = document.getElementById('ppDate').value;
+    if (isNaN(price) || price < 0) { document.getElementById('ppPrice').focus(); return; }
+    if (!date) { document.getElementById('ppDate').focus(); return; }
+    addPricePoint(id, price, date);
+    renderDetail(id);
+  };
+
+  // Reverb search
+  document.getElementById('reverbSearchBtn').onclick = () => searchReverb(id, gear);
+  document.getElementById('reverbQuery').addEventListener('keydown', e => {
+    if (e.key === 'Enter') searchReverb(id, gear);
+  });
+
+  // Delete
+  document.getElementById('deleteGearBtn').onclick = () => {
+    showConfirm(`Er du sikker p&aring; at du vil slette &laquo;${esc(gear.name)}&raquo;?`, () => {
+      removeGear(id);
+      navigate('#/');
+    });
+  };
+
+  // Edit
+  document.getElementById('editGearBtn').onclick = () => {
+    showEditModal(gear);
+  };
+}
+
+// ── Edit modal ──
+function showEditModal(gear) {
+  const overlay = document.createElement('div');
+  overlay.className = 'edit-overlay';
+  overlay.innerHTML = `
+    <div class="edit-box">
+      <h3>Rediger gear</h3>
+      <div class="form-group">
+        <label>Navn</label>
+        <input type="text" id="editName" value="${esc(gear.name)}">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Pris betalt (NOK)</label>
+          <input type="number" id="editPrice" value="${gear.pricePaid}" min="0" step="1">
+        </div>
+        <div class="form-group">
+          <label>Dato kj&oslash;pt</label>
+          <input type="date" id="editDate" value="${gear.datePurchased || ''}">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Kategori</label>
+        <select id="editCategory">
+          <option value="">Velg kategori</option>
+          <option value="gitar"${gear.category === 'gitar' ? ' selected' : ''}>Gitar</option>
+          <option value="bass"${gear.category === 'bass' ? ' selected' : ''}>Bass</option>
+          <option value="forsterker"${gear.category === 'forsterker' ? ' selected' : ''}>Forsterker</option>
+          <option value="effekt"${gear.category === 'effekt' ? ' selected' : ''}>Effektpedal</option>
+          <option value="synth"${gear.category === 'synth' ? ' selected' : ''}>Synth / Keys</option>
+          <option value="trommer"${gear.category === 'trommer' ? ' selected' : ''}>Trommer / Perkusjon</option>
+          <option value="mikrofon"${gear.category === 'mikrofon' ? ' selected' : ''}>Mikrofon</option>
+          <option value="studio"${gear.category === 'studio' ? ' selected' : ''}>Studioutstyr</option>
+          <option value="annet"${gear.category === 'annet' ? ' selected' : ''}>Annet</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Notater</label>
+        <textarea id="editNotes">${esc(gear.notes || '')}</textarea>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-accent btn-sm" id="saveEditBtn">Lagre</button>
+        <button class="btn btn-ghost btn-sm" id="cancelEditBtn">Avbryt</button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+  overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+  document.getElementById('cancelEditBtn').onclick = () => overlay.remove();
+  document.getElementById('saveEditBtn').onclick = () => {
+    const name = document.getElementById('editName').value.trim();
+    const price = parseFloat(document.getElementById('editPrice').value);
+    const date = document.getElementById('editDate').value;
+    const category = document.getElementById('editCategory').value;
+    const notes = document.getElementById('editNotes').value.trim();
+
+    if (!name) return;
+    if (isNaN(price) || price < 0) return;
+
+    updateGear(gear.id, { name, pricePaid: price, datePurchased: date, category, notes });
+    overlay.remove();
+    renderDetail(gear.id);
+    updateHeaderStats();
+  };
+}
+
+// ── Confirm dialog ──
+function showConfirm(message, onYes) {
+  const overlay = document.createElement('div');
+  overlay.className = 'confirm-overlay';
+  overlay.innerHTML = `
+    <div class="confirm-box">
+      <p>${message}</p>
+      <div class="btns">
+        <button class="btn btn-danger btn-sm" id="confirmYes">Ja, slett</button>
+        <button class="btn btn-ghost btn-sm" id="confirmNo">Avbryt</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  document.getElementById('confirmNo').onclick = () => overlay.remove();
+  document.getElementById('confirmYes').onclick = () => { overlay.remove(); onYes(); };
+  overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+}
+
+// ── Reverb integration ──
+async function searchReverb(gearId, gear) {
+  const query = document.getElementById('reverbQuery').value.trim();
+  if (!query) return;
+
+  // Save query for future searches
+  updateGear(gearId, { reverbQuery: query });
+
+  const resultsEl = document.getElementById('reverbResults');
+  resultsEl.innerHTML = '<div class="reverb-loading"><span class="spinner-sm"></span>Henter priser fra Reverb...</div>';
+
+  try {
+    const res = await fetch(`/api/reverb?q=${encodeURIComponent(query)}&per_page=25`);
+    if (!res.ok) throw new Error('API-feil: ' + res.status);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    if (!data.listings || data.listings.length === 0) {
+      resultsEl.innerHTML = '<div class="reverb-error">Ingen resultater funnet p\u00e5 Reverb for dette s\u00f8ket.</div>';
+      return;
+    }
+
+    const stats = data.stats;
+    let html = '';
+
+    // Stats row
+    if (stats) {
+      const avgNok = Math.round(stats.avg * getUsdNokRate());
+      html += `<div class="reverb-stats">
+        <div class="reverb-stat"><div class="rs-lbl">Snitt</div><div class="rs-val kv-y">$${stats.avg}</div></div>
+        <div class="reverb-stat"><div class="rs-lbl">Laveste</div><div class="rs-val kv-g">$${stats.low}</div></div>
+        <div class="reverb-stat"><div class="rs-lbl">H\u00f8yeste</div><div class="rs-val kv-r">$${stats.high}</div></div>
+        <div class="reverb-stat"><div class="rs-lbl">Annonser</div><div class="rs-val kv-y">${stats.count}</div></div>
+        <div class="reverb-stat"><div class="rs-lbl">Snitt (NOK)</div><div class="rs-val kv-y">\u2248${avgNok.toLocaleString('no')} kr</div></div>
+      </div>`;
+    }
+
+    // Listings
+    html += '<div class="reverb-listings">';
+    data.listings.slice(0, 12).forEach(l => {
+      html += `<div class="reverb-listing">
+        ${l.photo ? `<img src="${esc(l.photo)}" alt="" loading="lazy">` : '<div style="width:70px;height:70px;background:var(--bg);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:1.5rem">&#127928;</div>'}
+        <div class="reverb-listing-info">
+          <div class="reverb-listing-title" title="${esc(l.title)}">${esc(l.title)}</div>
+          <div class="reverb-listing-meta">${esc(l.condition)}${l.year ? ' \u00b7 ' + l.year : ''}</div>
+          <div class="reverb-listing-price">$${l.price.toLocaleString('en-US')}</div>
+          ${l.link ? `<a href="${esc(l.link)}" target="_blank" rel="noopener" class="reverb-listing-link">Se p\u00e5 Reverb \u2192</a>` : ''}
+        </div>
+      </div>`;
+    });
+    html += '</div>';
+
+    // Save as price point
+    if (stats) {
+      const avgNok = Math.round(stats.avg * getUsdNokRate());
+      html += `<div class="reverb-save-row">
+        <span>Lagre snittprisen som prispunkt?</span>
+        <button class="btn btn-accent btn-sm" id="saveReverbPrice">Lagre $${stats.avg} (\u2248${avgNok.toLocaleString('no')} NOK) som prispunkt</button>
+      </div>`;
+    }
+
+    resultsEl.innerHTML = html;
+
+    // Save button handler
+    if (stats) {
+      document.getElementById('saveReverbPrice').onclick = () => {
+        const avgNok = Math.round(stats.avg * getUsdNokRate());
+        const today = new Date().toISOString().split('T')[0];
+        addPricePoint(gearId, avgNok, today, 'reverb');
+        renderDetail(gearId);
+      };
+    }
+
+  } catch (e) {
+    resultsEl.innerHTML = `<div class="reverb-error">Kunne ikke hente fra Reverb: ${esc(e.message)}</div>`;
+  }
+}
+
+function getUsdNokRate() {
+  // Approximate USD/NOK rate - can be updated
+  return 10.5;
+}
+
+// ── Helpers ──
+function esc(str) {
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+function getCategoryLabel(cat) {
+  const labels = {
+    gitar: 'Gitar',
+    bass: 'Bass',
+    forsterker: 'Forsterker',
+    effekt: 'Effektpedal',
+    synth: 'Synth / Keys',
+    trommer: 'Trommer',
+    mikrofon: 'Mikrofon',
+    studio: 'Studioutstyr',
+    annet: 'Annet',
+  };
+  return labels[cat] || cat;
+}
+</script>
+</body>
+</html>
